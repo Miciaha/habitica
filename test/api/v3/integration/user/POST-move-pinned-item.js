@@ -2,26 +2,27 @@ import {
   generateUser,
 } from '../../../../helpers/api-integration/v3';
 
-import getOfficialPinnedItems from '../../../../../website/common/script/libs/getOfficialPinnedItems.js';
+import getOfficialPinnedItems from '../../../../../website/common/script/libs/getOfficialPinnedItems';
+import content from '../../../../../website/common/script/content';
 
 describe('POST /user/move-pinned-item/:path/move/to/:position', () => {
   let user;
-  let officialPinnedItems;
   let officialPinnedItemPaths;
 
   beforeEach(async () => {
     user = await generateUser();
-    officialPinnedItems = getOfficialPinnedItems(user);
+    const officialPinnedItems = getOfficialPinnedItems(user);
 
     officialPinnedItemPaths = [];
-    // officialPinnedItems are returned in { type: ..., path:... } format but we just need the paths for testPinnedItemsOrder
+    // officialPinnedItems are returned in { type: ..., path:... } format
+    // but we just need the paths for testPinnedItemsOrder
     if (officialPinnedItems.length > 0) {
       officialPinnedItemPaths = officialPinnedItems.map(item => item.path);
     }
   });
 
   it('adjusts the order of pinned items with no order mismatch', async () => {
-    let testPinnedItems = [
+    const testPinnedItems = [
       { type: 'armoire', path: 'armoire' },
       { type: 'potion', path: 'potion' },
       { type: 'marketGear', path: 'gear.flat.weapon_warrior_1' },
@@ -56,7 +57,7 @@ describe('POST /user/move-pinned-item/:path/move/to/:position', () => {
       pinnedItemsOrder: testPinnedItemsOrder,
     });
 
-    let res = await user.post('/user/move-pinned-item/armoire/move/to/5');
+    const res = await user.post('/user/move-pinned-item/armoire/move/to/5');
     await user.sync();
 
     expect(user.pinnedItemsOrder[5]).to.equal('armoire');
@@ -82,15 +83,15 @@ describe('POST /user/move-pinned-item/:path/move/to/:position', () => {
     expect(res).to.eql(expectedResponse);
   });
 
-  it('adjusts the order of pinned items with order mismatch', async () => {
-    let testPinnedItems = [
+  it('adjusts the order of pinned items with order mismatch - existing item in order', async () => {
+    const testPinnedItems = [
       { type: 'card', path: 'cardTypes.thankyou' },
       { type: 'card', path: 'cardTypes.greeting' },
       { type: 'potion', path: 'potion' },
       { type: 'armoire', path: 'armoire' },
     ];
 
-    let testPinnedItemsOrder = [
+    const testPinnedItemsOrder = [
       'armoire',
       'potion',
     ];
@@ -100,7 +101,7 @@ describe('POST /user/move-pinned-item/:path/move/to/:position', () => {
       pinnedItemsOrder: testPinnedItemsOrder,
     });
 
-    let res = await user.post('/user/move-pinned-item/armoire/move/to/1');
+    const res = await user.post('/user/move-pinned-item/armoire/move/to/1');
     await user.sync();
 
     // The basic test
@@ -115,7 +116,8 @@ describe('POST /user/move-pinned-item/:path/move/to/:position', () => {
       'cardTypes.greeting',
       'potion',
     ];
-    // inAppRewards is used here and will by default put these seasonal items in the front like this:
+    // inAppRewards is used here and will by default
+    // put these seasonal items in the front like this:
     expectedResponse = officialPinnedItemPaths.concat(expectedResponse);
     // now put "armoire" in where we moved it:
     expectedResponse.splice(1, 0, 'armoire');
@@ -123,13 +125,102 @@ describe('POST /user/move-pinned-item/:path/move/to/:position', () => {
     expect(res).to.eql(expectedResponse);
   });
 
-  it('cannot move pinned item that you do not have pinned', async () => {
-    let testPinnedItems = [
+  it('adjusts the order of pinned items with order mismatch - not existing in order', async () => {
+    const testPinnedItems = [
+      { type: 'card', path: 'cardTypes.thankyou' },
+      { type: 'card', path: 'cardTypes.greeting' },
       { type: 'potion', path: 'potion' },
       { type: 'armoire', path: 'armoire' },
     ];
 
-    let testPinnedItemsOrder = [
+    const testPinnedItemsOrder = [
+      'armoire',
+      'potion',
+    ];
+
+    await user.update({
+      pinnedItems: testPinnedItems,
+      pinnedItemsOrder: testPinnedItemsOrder,
+    });
+    await user.sync();
+
+    await user.post('/user/move-pinned-item/cardTypes.greeting/move/to/2');
+    await user.sync();
+
+    // The basic test
+    expect(user.pinnedItemsOrder[2]).to.equal('cardTypes.greeting');
+
+    // potion is now the last item because the 2 unacounted for cards show up
+    // at the beginning of the order
+    expect(user.pinnedItemsOrder[user.pinnedItemsOrder.length - 1]).to.equal('potion');
+  });
+
+  it('adjusts the order of official pinned items with order mismatch - not existing in order', async () => {
+    const testPinnedItems = [
+      { type: 'card', path: 'cardTypes.thankyou' },
+      { type: 'card', path: 'cardTypes.greeting' },
+      { type: 'potion', path: 'potion' },
+    ];
+
+    const testPinnedItemsOrder = [
+      'potion',
+    ];
+
+    const { officialPinnedItems } = content;
+
+    // add item to pinned
+    officialPinnedItems.push({ type: 'armoire', path: 'armoire' });
+
+    await user.update({
+      pinnedItems: testPinnedItems,
+      pinnedItemsOrder: testPinnedItemsOrder,
+    });
+    await user.sync();
+
+    await user.post('/user/move-pinned-item/armoire/move/to/2');
+    await user.sync();
+
+    // The basic test
+    expect(user.pinnedItemsOrder[2]).to.equal('armoire');
+
+    // potion is now the last item because the 2 unacounted for cards show up
+    // at the beginning of the order
+    expect(user.pinnedItemsOrder[user.pinnedItemsOrder.length - 1]).to.equal('potion');
+  });
+
+  it('adjusts the order of pinned items with order mismatch - not existing - out of length', async () => {
+    const testPinnedItems = [
+      { type: 'card', path: 'cardTypes.thankyou' },
+      { type: 'card', path: 'cardTypes.greeting' },
+      { type: 'potion', path: 'potion' },
+      { type: 'armoire', path: 'armoire' },
+    ];
+
+    const testPinnedItemsOrder = [
+      'armoire',
+      'potion',
+    ];
+
+    await user.update({
+      pinnedItems: testPinnedItems,
+      pinnedItemsOrder: testPinnedItemsOrder,
+    });
+    await user.sync();
+
+    await user.post('/user/move-pinned-item/cardTypes.greeting/move/to/33');
+    await user.sync();
+
+    // since the target was out of bounce it added it to the last item
+    expect(user.pinnedItemsOrder[user.pinnedItemsOrder.length - 1]).to.equal('cardTypes.greeting');
+  });
+
+  it('cannot move pinned item that you do not have pinned', async () => {
+    const testPinnedItems = [
+      { type: 'potion', path: 'potion' },
+      { type: 'armoire', path: 'armoire' },
+    ];
+
+    const testPinnedItemsOrder = [
       'armoire',
       'potion',
     ];

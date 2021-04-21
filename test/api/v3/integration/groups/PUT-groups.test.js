@@ -5,13 +5,14 @@ import {
 } from '../../../../helpers/api-integration/v3';
 
 describe('PUT /group', () => {
-  let leader, nonLeader, groupToUpdate, adminUser;
-  let groupName = 'Test Public Guild';
-  let groupType = 'guild';
-  let groupUpdatedName = 'Test Public Guild Updated';
+  let leader; let nonLeader; let groupToUpdate; let
+    adminUser;
+  const groupName = 'Test Public Guild';
+  const groupType = 'guild';
+  const groupUpdatedName = 'Test Public Guild Updated';
 
   beforeEach(async () => {
-    let { group, groupLeader, members } = await createAndPopulateGroup({
+    const { group, groupLeader, members } = await createAndPopulateGroup({
       groupDetails: {
         name: groupName,
         type: groupType,
@@ -22,7 +23,7 @@ describe('PUT /group', () => {
     adminUser = await generateUser({ 'contributor.admin': true });
     groupToUpdate = group;
     leader = groupLeader;
-    nonLeader = members[0];
+    nonLeader = members[0]; // eslint-disable-line prefer-destructuring
   });
 
   it('returns an error when a user that is not an admin or group leader tries to update', async () => {
@@ -36,7 +37,7 @@ describe('PUT /group', () => {
   });
 
   it('updates a group', async () => {
-    let updatedGroup = await leader.put(`/groups/${groupToUpdate._id}`, {
+    const updatedGroup = await leader.put(`/groups/${groupToUpdate._id}`, {
       name: groupUpdatedName,
     });
 
@@ -46,12 +47,12 @@ describe('PUT /group', () => {
   });
 
   it('updates a group categories', async () => {
-    let categories = [{
+    const categories = [{
       slug: 'newCat',
       name: 'New Category',
     }];
 
-    let updatedGroup = await leader.put(`/groups/${groupToUpdate._id}`, {
+    const updatedGroup = await leader.put(`/groups/${groupToUpdate._id}`, {
       categories,
     });
 
@@ -60,7 +61,7 @@ describe('PUT /group', () => {
   });
 
   it('allows an admin to update a guild', async () => {
-    let updatedGroup = await adminUser.put(`/groups/${groupToUpdate._id}`, {
+    const updatedGroup = await adminUser.put(`/groups/${groupToUpdate._id}`, {
       name: groupUpdatedName,
     });
     expect(updatedGroup.leader._id).to.eql(leader._id);
@@ -69,7 +70,7 @@ describe('PUT /group', () => {
   });
 
   it('allows a leader to change leaders', async () => {
-    let updatedGroup = await leader.put(`/groups/${groupToUpdate._id}`, {
+    const updatedGroup = await leader.put(`/groups/${groupToUpdate._id}`, {
       name: groupUpdatedName,
       leader: nonLeader._id,
     });
@@ -77,5 +78,57 @@ describe('PUT /group', () => {
     expect(updatedGroup.leader._id).to.eql(nonLeader._id);
     expect(updatedGroup.leader.profile.name).to.eql(nonLeader.profile.name);
     expect(updatedGroup.name).to.equal(groupUpdatedName);
+  });
+
+  it('allows for an admin to update the bannedWordsAllow property for an existing guild', async () => {
+    const { group, groupLeader } = await createAndPopulateGroup({
+      groupDetails: {
+        name: 'public guild',
+        type: 'guild',
+        privacy: 'public',
+      },
+    });
+
+    const updateGroupDetails = {
+      id: group._id,
+      name: 'public guild',
+      type: 'guild',
+      privacy: 'public',
+      bannedWordsAllowed: true,
+    };
+
+    // Make guild leader into admin
+    await groupLeader.post('/debug/make-admin');
+    await groupLeader.sync();
+
+    // Update the bannedWordsAllowed property for the group
+    const response = await groupLeader.put(`/groups/${group._id}`, updateGroupDetails);
+
+    expect(groupLeader.contributor.admin).to.eql(true);
+    expect(response.bannedWordsAllowed).to.eql(true);
+  });
+
+  it('does not allow for a non-admin to update the bannedWordsAllow property for an existing guild', async () => {
+    const { group, groupLeader } = await createAndPopulateGroup({
+      groupDetails: {
+        name: 'public guild',
+        type: 'guild',
+        privacy: 'public',
+      },
+    });
+
+    const updateGroupDetails = {
+      id: group._id,
+      name: 'public guild',
+      type: 'guild',
+      privacy: 'public',
+      bannedWordsAllowed: true,
+    };
+
+    // Update the bannedWordsAllowed property for the group
+    const response = await groupLeader.put(`/groups/${group._id}`, updateGroupDetails);
+
+    expect(groupLeader.contributor.admin).to.eql(undefined);
+    expect(response.bannedWordsAllowed).to.eql(undefined);
   });
 });

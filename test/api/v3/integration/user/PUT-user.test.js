@@ -1,9 +1,9 @@
+import { each, get } from 'lodash';
 import {
   generateUser,
   translate as t,
 } from '../../../../helpers/api-integration/v3';
-
-import { each, get } from 'lodash';
+import { model as NewsPost } from '../../../../../website/server/models/newsPost';
 
 describe('PUT /user', () => {
   let user;
@@ -40,7 +40,7 @@ describe('PUT /user', () => {
     });
 
     it('update tags', async () => {
-      let userTags = user.tags;
+      const userTags = user.tags;
 
       await user.put('/user', {
         tags: [...user.tags, {
@@ -52,7 +52,6 @@ describe('PUT /user', () => {
 
       expect(user.tags.length).to.be.eql(userTags.length + 1);
     });
-
 
     it('validates profile.name', async () => {
       await expect(user.put('/user', {
@@ -94,24 +93,51 @@ describe('PUT /user', () => {
         error: 'BadRequest',
         message: t('displaynameIssueSlur'),
       });
+
+      await expect(user.put('/user', {
+        'profile.name': 'namecontainsnewline\n',
+      })).to.eventually.be.rejected.and.eql({
+        code: 400,
+        error: 'BadRequest',
+        message: t('displaynameIssueNewline'),
+      });
+    });
+
+    it('can set flags.newStuff to false', async () => {
+      NewsPost.updateLastNewsPost({
+        _id: '1234', publishDate: new Date(), title: 'Title', published: true,
+      });
+
+      await user.update({
+        'flags.lastNewStuffRead': '123',
+      });
+
+      await user.put('/user', {
+        'flags.newStuff': false,
+      });
+
+      await user.sync();
+
+      expect(user.flags.lastNewStuffRead).to.eql('1234');
     });
   });
 
   context('Top Level Protected Operations', () => {
-    let protectedOperations = {
-      'gem balance': {balance: 100},
-      auth: {'auth.blocked': true, 'auth.timestamps.created': new Date()},
-      contributor: {'contributor.level': 9, 'contributor.admin': true, 'contributor.text': 'some text'},
-      backer: {'backer.tier': 10, 'backer.npc': 'Bilbo'},
-      subscriptions: {'purchased.plan.extraMonths': 500, 'purchased.plan.consecutive.trinkets': 1000},
-      'customization gem purchases': {'purchased.background.tavern': true, 'purchased.skin.bear': true},
-      notifications: [{type: 123}],
-      webhooks: {webhooks: [{url: 'https://foobar.com'}]},
+    const protectedOperations = {
+      'gem balance': { balance: 100 },
+      auth: { 'auth.blocked': true, 'auth.timestamps.created': new Date() },
+      contributor: { 'contributor.level': 9, 'contributor.admin': true, 'contributor.text': 'some text' },
+      backer: { 'backer.tier': 10, 'backer.npc': 'Bilbo' },
+      subscriptions: { 'purchased.plan.extraMonths': 500, 'purchased.plan.consecutive.trinkets': 1000 },
+      'customization gem purchases': { 'purchased.background.tavern': true, 'purchased.skin.bear': true },
+      notifications: [{ type: 123 }],
+      webhooks: { webhooks: [{ url: 'https://foobar.com' }] },
+      secret: { secret: { text: 'Some new text' } },
     };
 
     each(protectedOperations, (data, testName) => {
       it(`does not allow updating ${testName}`, async () => {
-        let errorText = t('messageUserOperationProtected', { operation: Object.keys(data)[0] });
+        const errorText = t('messageUserOperationProtected', { operation: Object.keys(data)[0] });
 
         await expect(user.put('/user', data)).to.eventually.be.rejected.and.eql({
           code: 401,
@@ -123,17 +149,18 @@ describe('PUT /user', () => {
   });
 
   context('Sub-Level Protected Operations', () => {
-    let protectedOperations = {
-      'class stat': {'stats.class': 'wizard'},
-      'flags unless whitelisted': {'flags.dropsEnabled': true},
-      webhooks: {'preferences.webhooks': [1, 2, 3]},
-      sleep: {'preferences.sleep': true},
-      'disable classes': {'preferences.disableClasses': true},
+    const protectedOperations = {
+      'class stat': { 'stats.class': 'wizard' },
+      'flags unless whitelisted': { 'flags.chatRevoked': true },
+      webhooks: { 'preferences.webhooks': [1, 2, 3] },
+      sleep: { 'preferences.sleep': true },
+      'disable classes': { 'preferences.disableClasses': true },
+      secret: { secret: { text: 'Some new text' } },
     };
 
     each(protectedOperations, (data, testName) => {
       it(`does not allow updating ${testName}`, async () => {
-        let errorText = t('messageUserOperationProtected', { operation: Object.keys(data)[0] });
+        const errorText = t('messageUserOperationProtected', { operation: Object.keys(data)[0] });
 
         await expect(user.put('/user', data)).to.eventually.be.rejected.and.eql({
           code: 401,
@@ -145,7 +172,7 @@ describe('PUT /user', () => {
   });
 
   context('Default Appearance Preferences', () => {
-    let testCases = {
+    const testCases = {
       shirt: 'yellow',
       skin: 'ddc994',
       'hair.color': 'blond',
@@ -160,14 +187,14 @@ describe('PUT /user', () => {
       update[`preferences.${type}`] = item;
 
       it(`updates user with ${type} that is a default`, async () => {
-        let dbUpdate = {};
+        const dbUpdate = {};
         dbUpdate[`purchased.${type}.${item}`] = true;
         await user.update(dbUpdate);
 
         // Sanity checks to make sure user is not already equipped with item
         expect(get(user.preferences, type)).to.not.eql(item);
 
-        let updatedUser = await user.put('/user', update);
+        const updatedUser = await user.put('/user', update);
 
         expect(get(updatedUser.preferences, type)).to.eql(item);
       });
@@ -189,7 +216,7 @@ describe('PUT /user', () => {
         'preferences.hair.beard': 3,
       });
 
-      let updatedUser = await user.put('/user', {
+      const updatedUser = await user.put('/user', {
         'preferences.hair.beard': 0,
       });
 
@@ -202,7 +229,7 @@ describe('PUT /user', () => {
         'preferences.hair.mustache': 2,
       });
 
-      let updatedUser = await user.put('/user', {
+      const updatedUser = await user.put('/user', {
         'preferences.hair.mustache': 0,
       });
 
@@ -211,7 +238,7 @@ describe('PUT /user', () => {
   });
 
   context('Purchasable Appearance Preferences', () => {
-    let testCases = {
+    const testCases = {
       background: 'volcano',
       shirt: 'convict',
       skin: 'cactus',
@@ -229,19 +256,19 @@ describe('PUT /user', () => {
         await expect(user.put('/user', update)).to.eventually.be.rejected.and.eql({
           code: 401,
           error: 'NotAuthorized',
-          message: t('mustPurchaseToSet', {val: item, key: `preferences.${type}`}),
+          message: t('mustPurchaseToSet', { val: item, key: `preferences.${type}` }),
         });
       });
 
       it(`updates user with ${type} user does own`, async () => {
-        let dbUpdate = {};
+        const dbUpdate = {};
         dbUpdate[`purchased.${type}.${item}`] = true;
         await user.update(dbUpdate);
 
         // Sanity check to make sure user is not already equipped with item
         expect(get(user.preferences, type)).to.not.eql(item);
 
-        let updatedUser = await user.put('/user', update);
+        const updatedUser = await user.put('/user', update);
 
         expect(get(updatedUser.preferences, type)).to.eql(item);
       });

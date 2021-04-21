@@ -2,11 +2,15 @@
 import paypalPayments from '../../../../../../website/server/libs/payments/paypal';
 import payments from '../../../../../../website/server/libs/payments/payments';
 import { model as User } from '../../../../../../website/server/models/user';
+import common from '../../../../../../website/common';
 
-describe('checkout success', () => {
+describe('paypal - checkout success', () => {
   const subKey = 'basic_3mo';
-  let user, gift, customerId, paymentId;
-  let paypalPaymentExecuteStub, paymentBuyGemsStub, paymentsCreateSubscritionStub;
+  let user; let gift; let customerId; let
+    paymentId;
+  const gemsBlockKey = '21gems'; const gemsBlock = common.content.gems[gemsBlockKey];
+  let paypalPaymentExecuteStub; let paymentBuyGemsStub; let
+    paymentsCreateSubscritionStub;
 
   beforeEach(() => {
     user = new User();
@@ -25,7 +29,9 @@ describe('checkout success', () => {
   });
 
   it('purchases gems', async () => {
-    await paypalPayments.checkoutSuccess({user, gift, paymentId, customerId});
+    await paypalPayments.checkoutSuccess({
+      user, gift, paymentId, customerId, gemsBlock: gemsBlockKey,
+    });
 
     expect(paypalPaymentExecuteStub).to.be.calledOnce;
     expect(paypalPaymentExecuteStub).to.be.calledWith(paymentId, { payer_id: customerId });
@@ -34,11 +40,12 @@ describe('checkout success', () => {
       user,
       customerId,
       paymentMethod: 'Paypal',
+      gemsBlock,
     });
   });
 
   it('gifts gems', async () => {
-    let receivingUser = new User();
+    const receivingUser = new User();
     await receivingUser.save();
     gift = {
       type: 'gems',
@@ -48,7 +55,9 @@ describe('checkout success', () => {
       },
     };
 
-    await paypalPayments.checkoutSuccess({user, gift, paymentId, customerId});
+    await paypalPayments.checkoutSuccess({
+      user, gift, paymentId, customerId,
+    });
 
     expect(paypalPaymentExecuteStub).to.be.calledOnce;
     expect(paypalPaymentExecuteStub).to.be.calledWith(paymentId, { payer_id: customerId });
@@ -62,7 +71,7 @@ describe('checkout success', () => {
   });
 
   it('gifts subscription', async () => {
-    let receivingUser = new User();
+    const receivingUser = new User();
     await receivingUser.save();
     gift = {
       type: 'subscription',
@@ -72,7 +81,9 @@ describe('checkout success', () => {
       },
     };
 
-    await paypalPayments.checkoutSuccess({user, gift, paymentId, customerId});
+    await paypalPayments.checkoutSuccess({
+      user, gift, paymentId, customerId,
+    });
 
     expect(paypalPaymentExecuteStub).to.be.calledOnce;
     expect(paypalPaymentExecuteStub).to.be.calledWith(paymentId, { payer_id: customerId });

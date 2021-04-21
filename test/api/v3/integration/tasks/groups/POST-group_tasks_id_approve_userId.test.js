@@ -1,18 +1,19 @@
+import { find } from 'lodash';
 import {
   createAndPopulateGroup,
   translate as t,
 } from '../../../../../helpers/api-integration/v3';
-import { find } from 'lodash';
 
 describe('POST /tasks/:id/approve/:userId', () => {
-  let user, guild, member, member2, task;
+  let user; let guild; let member; let member2; let
+    task;
 
   function findAssignedTask (memberTask) {
     return memberTask.group.id === guild._id;
   }
 
   beforeEach(async () => {
-    let {group, members, groupLeader} = await createAndPopulateGroup({
+    const { group, members, groupLeader } = await createAndPopulateGroup({
       groupDetails: {
         name: 'Test Guild',
         type: 'guild',
@@ -22,8 +23,8 @@ describe('POST /tasks/:id/approve/:userId', () => {
 
     guild = group;
     user = groupLeader;
-    member = members[0];
-    member2 = members[1];
+    member = members[0]; // eslint-disable-line prefer-destructuring
+    member2 = members[1]; // eslint-disable-line prefer-destructuring
 
     task = await user.post(`/tasks/group/${guild._id}`, {
       text: 'test todo',
@@ -57,22 +58,14 @@ describe('POST /tasks/:id/approve/:userId', () => {
     let memberTasks = await member.get('/tasks/user');
     let syncedTask = find(memberTasks, findAssignedTask);
 
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
     await user.post(`/tasks/${task._id}/approve/${member._id}`);
 
     await member.sync();
 
-    expect(member.notifications.length).to.equal(3);
+    expect(member.notifications.length).to.equal(2);
     expect(member.notifications[1].type).to.equal('GROUP_TASK_APPROVED');
-    expect(member.notifications[1].data.message).to.equal(t('yourTaskHasBeenApproved', {taskText: task.text}));
-    expect(member.notifications[2].type).to.equal('SCORED_TASK');
-    expect(member.notifications[2].data.message).to.equal(t('yourTaskHasBeenApproved', {taskText: task.text}));
+    expect(member.notifications[1].data.message).to.equal(t('yourTaskHasBeenApproved', { taskText: task.text }));
 
     memberTasks = await member.get('/tasks/user');
     syncedTask = find(memberTasks, findAssignedTask);
@@ -92,21 +85,13 @@ describe('POST /tasks/:id/approve/:userId', () => {
     let memberTasks = await member.get('/tasks/user');
     let syncedTask = find(memberTasks, findAssignedTask);
 
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
     await member2.post(`/tasks/${task._id}/approve/${member._id}`);
     await member.sync();
 
-    expect(member.notifications.length).to.equal(3);
+    expect(member.notifications.length).to.equal(2);
     expect(member.notifications[1].type).to.equal('GROUP_TASK_APPROVED');
-    expect(member.notifications[1].data.message).to.equal(t('yourTaskHasBeenApproved', {taskText: task.text}));
-    expect(member.notifications[2].type).to.equal('SCORED_TASK');
-    expect(member.notifications[2].data.message).to.equal(t('yourTaskHasBeenApproved', {taskText: task.text}));
+    expect(member.notifications[1].data.message).to.equal(t('yourTaskHasBeenApproved', { taskText: task.text }));
 
     memberTasks = await member.get('/tasks/user');
     syncedTask = find(memberTasks, findAssignedTask);
@@ -122,14 +107,9 @@ describe('POST /tasks/:id/approve/:userId', () => {
     });
 
     await member2.post(`/tasks/${task._id}/assign/${member._id}`);
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
 
     await user.sync();
     await member2.sync();
@@ -154,16 +134,11 @@ describe('POST /tasks/:id/approve/:userId', () => {
 
     await member2.post(`/tasks/${task._id}/assign/${member._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
     await member2.post(`/tasks/${task._id}/approve/${member._id}`);
+
     await expect(user.post(`/tasks/${task._id}/approve/${member._id}`))
       .to.eventually.be.rejected.and.to.eql({
         code: 401,
@@ -184,7 +159,7 @@ describe('POST /tasks/:id/approve/:userId', () => {
   });
 
   it('completes master task when single-completion task is approved', async () => {
-    let sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
+    const sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
       text: 'shared completion todo',
       type: 'todo',
       requiresApproval: true,
@@ -194,28 +169,20 @@ describe('POST /tasks/:id/approve/:userId', () => {
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member._id}`);
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member2._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
     await user.post(`/tasks/${sharedCompletionTask._id}/approve/${member._id}`);
 
-    let groupTasks = await user.get(`/tasks/group/${guild._id}?type=completedTodos`);
+    const groupTasks = await user.get(`/tasks/group/${guild._id}?type=completedTodos`);
 
-    let masterTask = find(groupTasks, (groupTask) => {
-      return groupTask._id === sharedCompletionTask._id;
-    });
+    const masterTask = find(groupTasks, groupTask => groupTask._id === sharedCompletionTask._id);
 
     expect(masterTask.completed).to.equal(true);
   });
 
   it('deletes other assigned user tasks when single-completion task is approved', async () => {
-    let sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
+    const sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
       text: 'shared completion todo',
       type: 'todo',
       requiresApproval: true,
@@ -225,28 +192,23 @@ describe('POST /tasks/:id/approve/:userId', () => {
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member._id}`);
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member2._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
     await user.post(`/tasks/${sharedCompletionTask._id}/approve/${member._id}`);
 
-    let member2Tasks = await member2.get('/tasks/user');
+    const member2Tasks = await member2.get('/tasks/user');
 
-    let syncedTask2 = find(member2Tasks, (memberTask) => {
-      return memberTask.group.taskId === sharedCompletionTask._id;
-    });
+    const syncedTask2 = find(
+      member2Tasks,
+      memberTask => memberTask.group.taskId === sharedCompletionTask._id,
+    );
 
     expect(syncedTask2).to.equal(undefined);
   });
 
   it('does not complete master task when not all user tasks are approved if all assigned must complete', async () => {
-    let sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
+    const sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
       text: 'shared completion todo',
       type: 'todo',
       requiresApproval: true,
@@ -256,28 +218,20 @@ describe('POST /tasks/:id/approve/:userId', () => {
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member._id}`);
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member2._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
     await user.post(`/tasks/${sharedCompletionTask._id}/approve/${member._id}`);
 
-    let groupTasks = await user.get(`/tasks/group/${guild._id}`);
+    const groupTasks = await user.get(`/tasks/group/${guild._id}`);
 
-    let masterTask = find(groupTasks, (groupTask) => {
-      return groupTask._id === sharedCompletionTask._id;
-    });
+    const masterTask = find(groupTasks, groupTask => groupTask._id === sharedCompletionTask._id);
 
     expect(masterTask.completed).to.equal(false);
   });
 
   it('completes master task when all user tasks are approved if all assigned must complete', async () => {
-    let sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
+    const sharedCompletionTask = await user.post(`/tasks/group/${guild._id}`, {
       text: 'shared completion todo',
       type: 'todo',
       requiresApproval: true,
@@ -287,32 +241,19 @@ describe('POST /tasks/:id/approve/:userId', () => {
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member._id}`);
     await user.post(`/tasks/${sharedCompletionTask._id}/assign/${member2._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
-
-    let member2Tasks = await member2.get('/tasks/user');
-    let member2SyncedTask = find(member2Tasks, findAssignedTask);
-    await expect(member2.post(`/tasks/${member2SyncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
+    const member2Tasks = await member2.get('/tasks/user');
+    const member2SyncedTask = find(member2Tasks, findAssignedTask);
+    await member2.post(`/tasks/${member2SyncedTask._id}/score/up`);
 
     await user.post(`/tasks/${sharedCompletionTask._id}/approve/${member._id}`);
     await user.post(`/tasks/${sharedCompletionTask._id}/approve/${member2._id}`);
 
-    let groupTasks = await user.get(`/tasks/group/${guild._id}?type=completedTodos`);
+    const groupTasks = await user.get(`/tasks/group/${guild._id}?type=completedTodos`);
 
-    let masterTask = find(groupTasks, (groupTask) => {
-      return groupTask._id === sharedCompletionTask._id;
-    });
+    const masterTask = find(groupTasks, groupTask => groupTask._id === sharedCompletionTask._id);
 
     expect(masterTask.completed).to.equal(true);
   });

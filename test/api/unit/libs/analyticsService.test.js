@@ -1,7 +1,8 @@
 /* eslint-disable camelcase */
-import analyticsService from '../../../../website/server/libs/analyticsService';
+import nconf from 'nconf';
 import Amplitude from 'amplitude';
 import { Visitor } from 'universal-analytics';
+import * as analyticsService from '../../../../website/server/libs/analyticsService';
 
 describe('analyticsService', () => {
   beforeEach(() => {
@@ -15,8 +16,25 @@ describe('analyticsService', () => {
     sandbox.restore();
   });
 
+  describe('#getServiceByEnvironment', () => {
+    it('returns mock methods when not in production', () => {
+      sandbox.stub(nconf, 'get').withArgs('IS_PROD').returns(false);
+      expect(analyticsService.getAnalyticsServiceByEnvironment())
+        .to.equal(analyticsService.mockAnalyticsService);
+    });
+
+    it('returns real methods when in production', () => {
+      sandbox.stub(nconf, 'get').withArgs('IS_PROD').returns(true);
+      expect(analyticsService.getAnalyticsServiceByEnvironment().track)
+        .to.equal(analyticsService.track);
+      expect(analyticsService.getAnalyticsServiceByEnvironment().trackPurchase)
+        .to.equal(analyticsService.trackPurchase);
+    });
+  });
+
   describe('#track', () => {
-    let eventType, data;
+    let eventType; let
+      data;
 
     beforeEach(() => {
       Visitor.prototype.event.yields();
@@ -35,12 +53,10 @@ describe('analyticsService', () => {
     });
 
     context('Amplitude', () => {
-      it('calls out to amplitude', () => {
-        return analyticsService.track(eventType, data)
-          .then(() => {
-            expect(Amplitude.prototype.track).to.be.calledOnce;
-          });
-      });
+      it('calls out to amplitude', () => analyticsService.track(eventType, data)
+        .then(() => {
+          expect(Amplitude.prototype.track).to.be.calledOnce;
+        }));
 
       it('uses a dummy user id if none is provided', () => {
         delete data.uuid;
@@ -55,7 +71,7 @@ describe('analyticsService', () => {
 
       context('platform', () => {
         it('logs web platform', () => {
-          data.headers = {'x-client': 'habitica-web'};
+          data.headers = { 'x-client': 'habitica-web' };
 
           return analyticsService.track(eventType, data)
             .then(() => {
@@ -66,7 +82,7 @@ describe('analyticsService', () => {
         });
 
         it('logs iOS platform', () => {
-          data.headers = {'x-client': 'habitica-ios'};
+          data.headers = { 'x-client': 'habitica-ios' };
 
           return analyticsService.track(eventType, data)
             .then(() => {
@@ -77,7 +93,7 @@ describe('analyticsService', () => {
         });
 
         it('logs Android platform', () => {
-          data.headers = {'x-client': 'habitica-android'};
+          data.headers = { 'x-client': 'habitica-android' };
 
           return analyticsService.track(eventType, data)
             .then(() => {
@@ -88,7 +104,7 @@ describe('analyticsService', () => {
         });
 
         it('logs 3rd Party platform', () => {
-          data.headers = {'x-client': 'some-third-party'};
+          data.headers = { 'x-client': 'some-third-party' };
 
           return analyticsService.track(eventType, data)
             .then(() => {
@@ -156,7 +172,7 @@ describe('analyticsService', () => {
             });
         });
 
-        it('sets Unkown if headers are not passed in', () => {
+        it('sets Unknown if headers are not passed in', () => {
           delete data.headers;
 
           return analyticsService.track(eventType, data)
@@ -169,18 +185,16 @@ describe('analyticsService', () => {
         });
       });
 
-      it('sends details about event', () => {
-        return analyticsService.track(eventType, data)
-          .then(() => {
-            expect(Amplitude.prototype.track).to.be.calledWithMatch({
-              event_properties: {
-                category: 'behavior',
-                resting: true,
-                cronCount: 5,
-              },
-            });
+      it('sends details about event', () => analyticsService.track(eventType, data)
+        .then(() => {
+          expect(Amplitude.prototype.track).to.be.calledWithMatch({
+            event_properties: {
+              category: 'behavior',
+              resting: true,
+              cronCount: 5,
+            },
           });
-      });
+        }));
 
       it('sends english item name for gear if itemKey is provided', () => {
         data.itemKey = 'headAccessory_special_foxEars';
@@ -267,16 +281,18 @@ describe('analyticsService', () => {
       });
 
       it('sends user data if provided', () => {
-        let stats = { class: 'wizard', exp: 5, gp: 23, hp: 10, lvl: 4, mp: 30 };
-        let user = {
+        const stats = {
+          class: 'wizard', exp: 5, gp: 23, hp: 10, lvl: 4, mp: 30,
+        };
+        const user = {
           stats,
           contributor: { level: 1 },
           purchased: { plan: { planId: 'foo-plan' } },
-          flags: {tour: {intro: -2}},
-          habits: [{_id: 'habit'}],
-          dailys: [{_id: 'daily'}],
-          todos: [{_id: 'todo'}],
-          rewards: [{_id: 'reward'}],
+          flags: { tour: { intro: -2 } },
+          habits: [{ _id: 'habit' }],
+          dailys: [{ _id: 'daily' }],
+          todos: [{ _id: 'todo' }],
+          rewards: [{ _id: 'reward' }],
           balance: 12,
           loginIncentives: 1,
         };
@@ -312,27 +328,24 @@ describe('analyticsService', () => {
     });
 
     context('GA', () => {
-      it('calls out to GA', () => {
-        return analyticsService.track(eventType, data)
-          .then(() => {
-            expect(Visitor.prototype.event).to.be.calledOnce;
-          });
-      });
+      it('calls out to GA', () => analyticsService.track(eventType, data)
+        .then(() => {
+          expect(Visitor.prototype.event).to.be.calledOnce;
+        }));
 
-      it('sends details about event', () => {
-        return analyticsService.track(eventType, data)
-          .then(() => {
-            expect(Visitor.prototype.event).to.be.calledWith({
-              ea: 'Cron',
-              ec: 'behavior',
-            });
+      it('sends details about event', () => analyticsService.track(eventType, data)
+        .then(() => {
+          expect(Visitor.prototype.event).to.be.calledWith({
+            ea: 'Cron',
+            ec: 'behavior',
           });
-      });
+        }));
     });
   });
 
   describe('#trackPurchase', () => {
-    let data, itemSpy;
+    let data; let
+      itemSpy;
 
     beforeEach(() => {
       Visitor.prototype.event.yields();
@@ -361,12 +374,10 @@ describe('analyticsService', () => {
     });
 
     context('Amplitude', () => {
-      it('calls out to amplitude', () => {
-        return analyticsService.trackPurchase(data)
-          .then(() => {
-            expect(Amplitude.prototype.track).to.be.calledOnce;
-          });
-      });
+      it('calls out to amplitude', () => analyticsService.trackPurchase(data)
+        .then(() => {
+          expect(Amplitude.prototype.track).to.be.calledOnce;
+        }));
 
       it('uses a dummy user id if none is provided', () => {
         delete data.uuid;
@@ -381,7 +392,7 @@ describe('analyticsService', () => {
 
       context('platform', () => {
         it('logs web platform', () => {
-          data.headers = {'x-client': 'habitica-web'};
+          data.headers = { 'x-client': 'habitica-web' };
 
           return analyticsService.trackPurchase(data)
             .then(() => {
@@ -392,7 +403,7 @@ describe('analyticsService', () => {
         });
 
         it('logs iOS platform', () => {
-          data.headers = {'x-client': 'habitica-ios'};
+          data.headers = { 'x-client': 'habitica-ios' };
 
           return analyticsService.trackPurchase(data)
             .then(() => {
@@ -403,7 +414,7 @@ describe('analyticsService', () => {
         });
 
         it('logs Android platform', () => {
-          data.headers = {'x-client': 'habitica-android'};
+          data.headers = { 'x-client': 'habitica-android' };
 
           return analyticsService.trackPurchase(data)
             .then(() => {
@@ -414,7 +425,7 @@ describe('analyticsService', () => {
         });
 
         it('logs 3rd Party platform', () => {
-          data.headers = {'x-client': 'some-third-party'};
+          data.headers = { 'x-client': 'some-third-party' };
 
           return analyticsService.trackPurchase(data)
             .then(() => {
@@ -482,7 +493,7 @@ describe('analyticsService', () => {
             });
         });
 
-        it('sets Unkown if headers are not passed in', () => {
+        it('sets Unknown if headers are not passed in', () => {
           delete data.headers;
 
           return analyticsService.trackPurchase(data)
@@ -495,33 +506,33 @@ describe('analyticsService', () => {
         });
       });
 
-      it('sends details about purchase', () => {
-        return analyticsService.trackPurchase(data)
-          .then(() => {
-            expect(Amplitude.prototype.track).to.be.calledWithMatch({
-              event_properties: {
-                gift: false,
-                itemPurchased: 'Gems',
-                paymentMethod: 'PayPal',
-                purchaseType: 'checkout',
-                quantity: 1,
-                sku: 'paypal-checkout',
-              },
-            });
+      it('sends details about purchase', () => analyticsService.trackPurchase(data)
+        .then(() => {
+          expect(Amplitude.prototype.track).to.be.calledWithMatch({
+            event_properties: {
+              gift: false,
+              itemPurchased: 'Gems',
+              paymentMethod: 'PayPal',
+              purchaseType: 'checkout',
+              quantity: 1,
+              sku: 'paypal-checkout',
+            },
           });
-      });
+        }));
 
       it('sends user data if provided', () => {
-        let stats = { class: 'wizard', exp: 5, gp: 23, hp: 10, lvl: 4, mp: 30 };
-        let user = {
+        const stats = {
+          class: 'wizard', exp: 5, gp: 23, hp: 10, lvl: 4, mp: 30,
+        };
+        const user = {
           stats,
           contributor: { level: 1 },
           purchased: { plan: { planId: 'foo-plan' } },
-          flags: {tour: {intro: -2}},
-          habits: [{_id: 'habit'}],
-          dailys: [{_id: 'daily'}],
-          todos: [{_id: 'todo'}],
-          rewards: [{_id: 'reward'}],
+          flags: { tour: { intro: -2 } },
+          habits: [{ _id: 'habit' }],
+          dailys: [{ _id: 'daily' }],
+          todos: [{ _id: 'todo' }],
+          rewards: [{ _id: 'reward' }],
         };
 
         data.user = user;
@@ -552,27 +563,23 @@ describe('analyticsService', () => {
     });
 
     context('GA', () => {
-      it('calls out to GA', () => {
-        return analyticsService.trackPurchase(data)
-          .then(() => {
-            expect(Visitor.prototype.event).to.be.calledOnce;
-            expect(Visitor.prototype.transaction).to.be.calledOnce;
-          });
-      });
+      it('calls out to GA', () => analyticsService.trackPurchase(data)
+        .then(() => {
+          expect(Visitor.prototype.event).to.be.calledOnce;
+          expect(Visitor.prototype.transaction).to.be.calledOnce;
+        }));
 
-      it('sends details about purchase', () => {
-        return analyticsService.trackPurchase(data)
-          .then(() => {
-            expect(Visitor.prototype.event).to.be.calledWith({
-              ea: 'checkout',
-              ec: 'commerce',
-              el: 'PayPal',
-              ev: 8,
-            });
-            expect(Visitor.prototype.transaction).to.be.calledWith('user-id', 8);
-            expect(itemSpy).to.be.calledWith(8, 1, 'paypal-checkout', 'Gems', 'checkout');
+      it('sends details about purchase', () => analyticsService.trackPurchase(data)
+        .then(() => {
+          expect(Visitor.prototype.event).to.be.calledWith({
+            ea: 'checkout',
+            ec: 'commerce',
+            el: 'PayPal',
+            ev: 8,
           });
-      });
+          expect(Visitor.prototype.transaction).to.be.calledWith('user-id', 8);
+          expect(itemSpy).to.be.calledWith(8, 1, 'paypal-checkout', 'Gems', 'checkout');
+        }));
     });
   });
 

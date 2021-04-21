@@ -4,12 +4,15 @@ import nconf from 'nconf';
 import paypalPayments from '../../../../../../website/server/libs/payments/paypal';
 import { model as User } from '../../../../../../website/server/models/user';
 import common from '../../../../../../website/common';
+import apiError from '../../../../../../website/server/libs/apiError';
+import * as gems from '../../../../../../website/server/libs/payments/gems';
 
 const BASE_URL = nconf.get('BASE_URL');
-const i18n = common.i18n;
+const { i18n } = common;
 
-describe('checkout', () => {
+describe('paypal - checkout', () => {
   const subKey = 'basic_3mo';
+  const gemsBlockKey = '21gems';
   let paypalPaymentCreateStub;
   let approvalHerf;
 
@@ -46,6 +49,7 @@ describe('checkout', () => {
       .resolves({
         links: [{ rel: 'approval_url', href: approvalHerf }],
       });
+    sandbox.stub(gems, 'validateGiftMessage');
   });
 
   afterEach(() => {
@@ -53,17 +57,18 @@ describe('checkout', () => {
   });
 
   it('creates a link for gem purchases', async () => {
-    let link = await paypalPayments.checkout({user: new User()});
+    const link = await paypalPayments.checkout({ user: new User(), gemsBlock: gemsBlockKey });
 
+    expect(gems.validateGiftMessage).to.not.be.called;
     expect(paypalPaymentCreateStub).to.be.calledOnce;
-    expect(paypalPaymentCreateStub).to.be.calledWith(getPaypalCreateOptions('Habitica Gems', 5.00));
+    expect(paypalPaymentCreateStub).to.be.calledWith(getPaypalCreateOptions('Habitica Gems', 4.99));
     expect(link).to.eql(approvalHerf);
   });
 
   it('should error if gem amount is too low', async () => {
-    let receivingUser = new User();
+    const receivingUser = new User();
     receivingUser.save();
-    let gift = {
+    const gift = {
       type: 'gems',
       gems: {
         amount: 0,
@@ -71,7 +76,7 @@ describe('checkout', () => {
       },
     };
 
-    await expect(paypalPayments.checkout({gift}))
+    await expect(paypalPayments.checkout({ gift }))
       .to.eventually.be.rejected.and.to.eql({
         httpCode: 400,
         message: 'Amount must be at least 1.',
@@ -80,20 +85,33 @@ describe('checkout', () => {
   });
 
   it('should error if the user cannot get gems', async () => {
-    let user = new User();
+    const user = new User();
     sinon.stub(user, 'canGetGems').resolves(false);
 
-    await expect(paypalPayments.checkout({user})).to.eventually.be.rejected.and.to.eql({
-      httpCode: 401,
-      message: i18n.t('groupPolicyCannotGetGems'),
-      name: 'NotAuthorized',
-    });
+    await expect(paypalPayments.checkout({ user, gemsBlock: gemsBlockKey }))
+      .to.eventually.be.rejected.and.to.eql({
+        httpCode: 401,
+        message: i18n.t('groupPolicyCannotGetGems'),
+        name: 'NotAuthorized',
+      });
+  });
+
+  it('should error if the gems block is not valid', async () => {
+    const user = new User();
+
+    await expect(paypalPayments.checkout({ user, gemsBlock: 'invalid' }))
+      .to.eventually.be.rejected.and.to.eql({
+        httpCode: 400,
+        message: apiError('invalidGemsBlock'),
+        name: 'BadRequest',
+      });
   });
 
   it('creates a link for gifting gems', async () => {
-    let receivingUser = new User();
+    const user = new User();
+    const receivingUser = new User();
     await receivingUser.save();
-    let gift = {
+    const gift = {
       type: 'gems',
       uuid: receivingUser._id,
       gems: {
@@ -101,17 +119,20 @@ describe('checkout', () => {
       },
     };
 
-    let link = await paypalPayments.checkout({gift});
+    const link = await paypalPayments.checkout({ user, gift });
 
+    expect(gems.validateGiftMessage).to.be.calledOnce;
+    expect(gems.validateGiftMessage).to.be.calledWith(gift, user);
     expect(paypalPaymentCreateStub).to.be.calledOnce;
     expect(paypalPaymentCreateStub).to.be.calledWith(getPaypalCreateOptions('Habitica Gems (Gift)', '4.00'));
     expect(link).to.eql(approvalHerf);
   });
 
   it('creates a link for gifting a subscription', async () => {
-    let receivingUser = new User();
+    const user = new User();
+    const receivingUser = new User();
     receivingUser.save();
-    let gift = {
+    const gift = {
       type: 'subscription',
       subscription: {
         key: subKey,
@@ -119,7 +140,10 @@ describe('checkout', () => {
       },
     };
 
-    let link = await paypalPayments.checkout({gift});
+    const link = await paypalPayments.checkout({ user, gift });
+
+    expect(gems.validateGiftMessage).to.be.calledOnce;
+    expect(gems.validateGiftMessage).to.be.calledWith(gift, user);
 
     expect(paypalPaymentCreateStub).to.be.calledOnce;
     expect(paypalPaymentCreateStub).to.be.calledWith(getPaypalCreateOptions('mo. Habitica Subscription (Gift)', '15.00'));

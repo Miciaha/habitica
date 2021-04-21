@@ -1,18 +1,19 @@
+import { find } from 'lodash';
 import {
   translate as t,
   createAndPopulateGroup,
 } from '../../../../../helpers/api-integration/v3';
-import { find } from 'lodash';
 
 describe('Groups DELETE /tasks/:id', () => {
-  let user, guild, member, member2, task;
+  let user; let guild; let member; let member2; let
+    task;
 
   function findAssignedTask (memberTask) {
     return memberTask.group.id === guild._id;
   }
 
   beforeEach(async () => {
-    let {group, members, groupLeader} = await createAndPopulateGroup({
+    const { group, members, groupLeader } = await createAndPopulateGroup({
       groupDetails: {
         name: 'Test Guild',
         type: 'guild',
@@ -22,8 +23,8 @@ describe('Groups DELETE /tasks/:id', () => {
 
     guild = group;
     user = groupLeader;
-    member = members[0];
-    member2 = members[1];
+    member = members[0]; // eslint-disable-line prefer-destructuring
+    member2 = members[1]; // eslint-disable-line prefer-destructuring
 
     task = await user.post(`/tasks/group/${guild._id}`, {
       text: 'test habit',
@@ -70,14 +71,9 @@ describe('Groups DELETE /tasks/:id', () => {
     await user.put(`/tasks/${task._id}/`, {
       requiresApproval: true,
     });
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-    await expect(member.post(`/tasks/${syncedTask._id}/score/up`))
-      .to.eventually.be.rejected.and.to.eql({
-        code: 401,
-        error: 'NotAuthorized',
-        message: t('taskApprovalHasBeenRequested'),
-      });
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
+    await member.post(`/tasks/${syncedTask._id}/score/up`);
 
     await user.sync();
     await member2.sync();
@@ -95,31 +91,31 @@ describe('Groups DELETE /tasks/:id', () => {
     expect(member2.notifications.length).to.equal(1);
   });
 
-  it('unlinks assigned user', async () => {
+  it('deletes task from assigned user', async () => {
     await user.del(`/tasks/${task._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
 
-    expect(syncedTask.group.broken).to.equal('TASK_DELETED');
+    expect(syncedTask).to.not.exist;
   });
 
-  it('unlinks all assigned users', async () => {
+  it('deletes task from all assigned users', async () => {
     await user.del(`/tasks/${task._id}`);
 
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
 
-    let member2Tasks = await member2.get('/tasks/user');
-    let member2SyncedTask = find(member2Tasks, findAssignedTask);
+    const member2Tasks = await member2.get('/tasks/user');
+    const member2SyncedTask = find(member2Tasks, findAssignedTask);
 
-    expect(syncedTask.group.broken).to.equal('TASK_DELETED');
-    expect(member2SyncedTask.group.broken).to.equal('TASK_DELETED');
+    expect(syncedTask).to.not.exist;
+    expect(member2SyncedTask).to.not.exist;
   });
 
   it('prevents a user from deleting a task they are assigned to', async () => {
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
 
     await expect(member.del(`/tasks/${syncedTask._id}`))
       .to.eventually.be.rejected.and.eql({
@@ -129,25 +125,9 @@ describe('Groups DELETE /tasks/:id', () => {
       });
   });
 
-  it('allows a user to delete a broken task', async () => {
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
-
-    await user.del(`/tasks/${task._id}`);
-
-    await member.del(`/tasks/${syncedTask._id}`);
-
-    await expect(member.get(`/tasks/${syncedTask._id}`))
-      .to.eventually.be.rejected.and.eql({
-        code: 404,
-        error: 'NotFound',
-        message: 'Task not found.',
-      });
-  });
-
   it('allows a user to delete a task after leaving a group', async () => {
-    let memberTasks = await member.get('/tasks/user');
-    let syncedTask = find(memberTasks, findAssignedTask);
+    const memberTasks = await member.get('/tasks/user');
+    const syncedTask = find(memberTasks, findAssignedTask);
 
     await member.post(`/groups/${guild._id}/leave`);
 
