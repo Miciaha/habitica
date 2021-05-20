@@ -204,6 +204,7 @@ export default {
       await axios.delete(`/api/v4/inbox/messages/${message.id}`);
     },
     parseMarkdown (text) {
+      // TODO emit user-link if possible
       return renderWithMentions(text, this.user);
     },
   },
